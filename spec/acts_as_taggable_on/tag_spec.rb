@@ -152,6 +152,8 @@ describe ActsAsTaggableOn::Tag do
 
   describe "when using strict_case_match" do
     before do
+      @tag.name = "awesome"
+      @tag.save
       ActsAsTaggableOn.strict_case_match = true
     end
 
