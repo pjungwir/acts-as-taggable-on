@@ -8,7 +8,7 @@ module ActsAsTaggableOn::Taggable
 
     module ClassMethods
       def initialize_acts_as_taggable_on_dirty
-        tag_types.map(&:to_s).each do |tags_type|
+        latest_tag_types.map(&:to_s).each do |tags_type|
           tag_type         = tags_type.to_s.singularize
           context_tags     = tags_type.to_sym
 

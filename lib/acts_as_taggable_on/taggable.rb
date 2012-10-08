@@ -15,6 +15,14 @@ module ActsAsTaggableOn
       acts_as_taggable_on :tags
     end
 
+    def acts_as_scored_taggable
+      acts_as_scored_taggable_on :tags
+    end
+
+    def acts_as_scored_taggable_on(*tag_types)
+      taggable_on(false, true, tag_types)
+    end
+
     ##
     # This is an alias for calling <tt>acts_as_ordered_taggable_on :tags</tt>.
     #
@@ -36,7 +44,7 @@ module ActsAsTaggableOn
     #     acts_as_taggable_on :languages, :skills
     #   end
     def acts_as_taggable_on(*tag_types)
-      taggable_on(false, tag_types)
+      taggable_on(false, false, tag_types)
     end
     
     
@@ -51,7 +59,7 @@ module ActsAsTaggableOn
     #     acts_as_ordered_taggable_on :languages, :skills
     #   end
     def acts_as_ordered_taggable_on(*tag_types)
-      taggable_on(true, tag_types)
+      taggable_on(true, false, tag_types)
     end
     
     private
@@ -67,17 +75,29 @@ module ActsAsTaggableOn
       # NB: method overridden in core module in order to create tag type
       #     associations and methods after this logic has executed
       #
-      def taggable_on(preserve_tag_order, *tag_types)
-        tag_types = tag_types.to_a.flatten.compact.map(&:to_sym)
+      def taggable_on(ordered, scored, *tag_types)
+        new_tag_types = tag_types.to_a.flatten.compact.map(&:to_sym)
 
         if taggable?
-          self.tag_types = (self.tag_types + tag_types).uniq
-          self.preserve_tag_order = preserve_tag_order
+          self.latest_tag_types = new_tag_types
+          self.tag_types = (self.tag_types + self.latest_tag_types).uniq
+          latest_tag_types.each do |ltt|
+            self.preserve_tag_order[ltt] = ordered
+            self.tags_have_scores[ltt] = scored
+          end
         else
           class_attribute :tag_types
-          self.tag_types = tag_types
+          class_attribute :latest_tag_types
           class_attribute :preserve_tag_order
-          self.preserve_tag_order = preserve_tag_order
+          class_attribute :tags_have_scores
+          self.tag_types = new_tag_types
+          self.latest_tag_types = new_tag_types
+          self.preserve_tag_order = HashWithIndifferentAccess.new
+          self.tags_have_scores = HashWithIndifferentAccess.new
+          latest_tag_types.each do |ltt|
+            self.preserve_tag_order[ltt] = ordered
+            self.tags_have_scores[ltt] = scored
+          end
         
           class_eval do
             has_many :taggings, :as => :taggable, :dependent => :destroy, :include => :tag, :class_name => "ActsAsTaggableOn::Tagging"

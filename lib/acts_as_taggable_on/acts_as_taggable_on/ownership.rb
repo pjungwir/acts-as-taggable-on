@@ -18,7 +18,7 @@ module ActsAsTaggableOn::Taggable
       end
       
       def initialize_acts_as_taggable_on_ownership      
-        tag_types.map(&:to_s).each do |tag_type|
+        latest_tag_types.map(&:to_s).each do |tag_type|
           class_eval %(
             def #{tag_type}_from(owner)
               owner_tag_list_on(owner, '#{tag_type}')
@@ -39,7 +39,7 @@ module ActsAsTaggableOn::Taggable
         end
         # when preserving tag order, return tags in created order
         # if we added the order to the association this would always apply
-        scope = scope.order("#{ActsAsTaggableOn::Tagging.table_name}.id") if self.class.preserve_tag_order?
+        scope = scope.order("#{ActsAsTaggableOn::Tagging.table_name}.id") if self.class.preserve_tag_order[context]
         scope.all
       end
 
@@ -85,7 +85,7 @@ module ActsAsTaggableOn::Taggable
             owned_tags = owner_tags_on(owner, context)
                
             # Tag maintenance based on whether preserving the created order of tags
-            if self.class.preserve_tag_order?
+            if self.class.preserve_tag_order[context]
               # First off order the array of tag objects to match the tag list
               # rather than existing tags followed by new tags
               tags = tag_list.uniq.map{|s| tags.detect{|t| t.name.downcase == s.downcase}}

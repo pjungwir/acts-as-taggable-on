@@ -3,6 +3,7 @@ module ActsAsTaggableOn
     include ActsAsTaggableOn::Utils
 
     attr_accessible :name
+    attr_accessor :score
 
     ### ASSOCIATIONS:
 

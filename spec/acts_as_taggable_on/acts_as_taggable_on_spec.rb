@@ -13,13 +13,13 @@ describe "Acts As Taggable On" do
     before(:each) do
       clean_database!
       TaggableModel.tag_types = []
-      TaggableModel.preserve_tag_order = false
+      TaggableModel.preserve_tag_order = {}
       TaggableModel.acts_as_ordered_taggable_on(:ordered_tags)
       @taggable = TaggableModel.new(:name => "Bob Jones")
     end
 
     it "should respond 'true' to preserve_tag_order?" do
-      @taggable.class.preserve_tag_order?.should be_true
+      @taggable.class.preserve_tag_order[:ordered_tags].should be_true
     end
   end
 
@@ -48,15 +48,19 @@ describe "Acts As Taggable On" do
     end
     
     it "should create a class attribute for preserve tag order" do
-      @taggable.class.should respond_to(:preserve_tag_order?)
+      @taggable.class.should respond_to(:preserve_tag_order)
     end
 
     it "should create an instance attribute for preserve tag order" do
-      @taggable.should respond_to(:preserve_tag_order?)
+      @taggable.should respond_to(:preserve_tag_order)
     end
     
-    it "should respond 'false' to preserve_tag_order?" do
-      @taggable.class.preserve_tag_order?.should be_false
+    it "should respond false to preserve_tag_order" do
+      @taggable.class.preserve_tag_order[:tags].should be_false
+      @taggable.class.preserve_tag_order[:languages].should be_false
+      @taggable.class.preserve_tag_order[:skills].should be_false
+      @taggable.class.preserve_tag_order[:needs].should be_false
+      @taggable.class.preserve_tag_order[:offerings].should be_false
     end
 
     it "should generate an association for each tag type" do

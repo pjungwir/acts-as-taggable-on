@@ -8,7 +8,7 @@ module ActsAsTaggableOn::Taggable
 
     module ClassMethods
       def initialize_acts_as_taggable_on_related
-        tag_types.map(&:to_s).each do |tag_type|
+        latest_tag_types.map(&:to_s).each do |tag_type|
           class_eval %(
             def find_related_#{tag_type}(options = {})
               related_tags_for('#{tag_type}', self.class, options)

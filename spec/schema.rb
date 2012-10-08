@@ -6,6 +6,7 @@ ActiveRecord::Schema.define :version => 0 do
     t.string   "context"
     t.datetime "created_at"
     t.integer  "tagger_id",     :limit => 11
+    t.integer  "score"
     t.string   "tagger_type"
   end
 

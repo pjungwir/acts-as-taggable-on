@@ -8,7 +8,8 @@ module ActsAsTaggableOn
                     :taggable_id,
                     :tagger,
                     :tagger_type,
-                    :tagger_id
+                    :tagger_id,
+                    :score
 
     belongs_to :tag, :class_name => 'ActsAsTaggableOn::Tag'
     belongs_to :taggable, :polymorphic => true

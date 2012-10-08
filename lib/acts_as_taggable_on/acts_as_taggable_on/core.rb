@@ -14,11 +14,11 @@ module ActsAsTaggableOn::Taggable
 
     module ClassMethods
       def initialize_acts_as_taggable_on_core
-        tag_types.map(&:to_s).each do |tags_type|
+        latest_tag_types.map(&:to_s).each do |tags_type|
           tag_type         = tags_type.to_s.singularize
           context_taggings = "#{tag_type}_taggings".to_sym
           context_tags     = tags_type.to_sym
-          taggings_order   = (preserve_tag_order? ? "#{ActsAsTaggableOn::Tagging.table_name}.id" : nil)
+          taggings_order   = (preserve_tag_order[tags_type] ? "#{ActsAsTaggableOn::Tagging.table_name}.id" : nil)
           
           class_eval do
             # when preserving tag order, include order option so that for a 'tags' context
@@ -36,24 +36,57 @@ module ActsAsTaggableOn::Taggable
                                    :order => taggings_order
           end
 
-          class_eval %(
-            def #{tag_type}_list
-              tag_list_on('#{tags_type}')
-            end
+          if tags_have_scores[tags_type]
+            class_eval %(
+              def #{tag_type}_list
+                # scored_#{tag_type}_list.map{|k,v| k}
+                raise "TODO"
+              end
 
-            def #{tag_type}_list=(new_tags)
-              set_tag_list_on('#{tags_type}', new_tags)
-            end
+              def scored_#{tag_type}_list
+                scored_tag_list_on('#{tags_type}')
+              end
 
-            def all_#{tags_type}_list
-              all_tags_list_on('#{tags_type}')
-            end
-          )
+              def #{tag_type}_list=(new_tags)
+                set_scored_tag_list_on('#{tags_type}', new_tags)
+              end
+
+              def all_#{tags_type}_list_by_score
+                raise "TODO"
+              end
+
+              def scored_#{tags_type}_list_by_score
+                raise "TODO"
+              end
+
+              def score_for_#{tags_type}(tag)
+                raise "TODO"
+              end
+
+              def set_score_for_#{tags_type}(tag, score)
+                set_score_for_tag_on('#{tags_type}', tag, score)
+              end
+            )
+          else
+            class_eval %(
+              def #{tag_type}_list
+                tag_list_on('#{tags_type}')
+              end
+
+              def #{tag_type}_list=(new_tags)
+                set_tag_list_on('#{tags_type}', new_tags)
+              end
+
+              def all_#{tags_type}_list
+                all_tags_list_on('#{tags_type}')
+              end
+            )
+          end
         end
       end
 
-      def taggable_on(preserve_tag_order, *tag_types)
-        super(preserve_tag_order, *tag_types)
+      def taggable_on(preserve_tag_order, scored, *tag_types)
+        super(preserve_tag_order, scored, *tag_types)
         initialize_acts_as_taggable_on_core
       end
       
@@ -223,9 +256,19 @@ module ActsAsTaggableOn::Taggable
         instance_variable_get(variable_name) || instance_variable_set(variable_name, ActsAsTaggableOn::TagList.new(tags_on(context).map(&:name)))
       end
 
+      def scored_tag_list_cache_on(context)
+        variable_name = "@scored_#{context.to_s.singularize}_list"
+        instance_variable_get(variable_name) || instance_variable_set(variable_name, ActsAsTaggableOn::TagList.new(tags_on(context).map{|t| "#{t.name}:#{t.score}"}))
+      end
+
       def tag_list_on(context)
         add_custom_context(context)
         tag_list_cache_on(context)
+      end
+
+      def scored_tag_list_on(context)
+        add_custom_context(context)
+        scored_tag_list_cache_on(context)
       end
 
       def all_tags_list_on(context)
@@ -260,7 +303,7 @@ module ActsAsTaggableOn::Taggable
         scope = base_tags.where(["#{ActsAsTaggableOn::Tagging.table_name}.context = ? AND #{ActsAsTaggableOn::Tagging.table_name}.tagger_id IS NULL", context.to_s])
         # when preserving tag order, return tags in created order
         # if we added the order to the association this would always apply
-        scope = scope.order("#{ActsAsTaggableOn::Tagging.table_name}.id") if self.class.preserve_tag_order?
+        scope = scope.order("#{ActsAsTaggableOn::Tagging.table_name}.id") if self.class.preserve_tag_order[context]
         scope.all
       end
 
@@ -273,13 +316,25 @@ module ActsAsTaggableOn::Taggable
         instance_variable_set(variable_name, ActsAsTaggableOn::TagList.from(new_list))
       end
 
+      def set_scored_tag_list_on(context, new_list)
+        add_custom_context(context)
+        variable_name = "@scored_#{context.to_s.singularize}_list"
+        process_dirty_object(context, new_list, true) unless custom_contexts.include?(context.to_s)
+
+        instance_variable_set(variable_name, ActsAsTaggableOn::TagList.from(new_list))
+      end
+
       def tagging_contexts
         custom_contexts + self.class.tag_types.map(&:to_s)
       end
 
-      def process_dirty_object(context,new_list)
-        value = new_list.is_a?(Array) ? new_list.join(', ') : new_list
-        attrib = "#{context.to_s.singularize}_list"
+      def process_dirty_object(context, new_list, scored=false)
+        value = case new_list
+                when Array; new_list.map{|x| x.is_a?(Array) ? "#{x[0]}:#{x[1]}" : x}.join(', ')
+                when Hash; new_list.map{|k,v| "#{x}:#{v}"}.join(", ")
+                else; new_list
+                end
+        attrib = "#{scored ? 'scored_' : ''}#{context.to_s.singularize}_list"
 
         if changed_attributes.include?(attrib)
           # The attribute already has an unsaved change.
@@ -314,7 +369,7 @@ module ActsAsTaggableOn::Taggable
           current_tags = tags_on(context)
 
           # Tag maintenance based on whether preserving the created order of tags
-          if self.class.preserve_tag_order?
+          if self.class.preserve_tag_order[context]
             # First off order the array of tag objects to match the tag list
             # rather than existing tags followed by new tags
             tags = tag_list.map{|l| tags.detect{|t| t.name.downcase == l.downcase}}
@@ -322,6 +377,13 @@ module ActsAsTaggableOn::Taggable
             # delete all current tags and create new tags if the content or order has changed
             old_tags = (tags == current_tags ? [] : current_tags)
             new_tags = (tags == current_tags ? [] : tags)
+
+          elsif self.class.tags_have_scores[context]
+            # Discard old tags unless a new tag keeps the same name & score:
+            old_tags = current_tags.select{|ct| !tags.select{|t| ct == t && ct.score == t.score}.any?}
+            # Create a new tag unless an old tag already has the same name & score:
+            new_tags = tags.select{|t| !current_tags.select{|ct| ct == t && ct.score == t.score}.any?}
+
           else
             # Delete discarded tags and create new tags
             old_tags = current_tags - tags
@@ -341,7 +403,7 @@ module ActsAsTaggableOn::Taggable
 
           # Create new taggings:
           new_tags.each do |tag|
-            taggings.create!(:tag_id => tag.id, :context => context.to_s, :taggable => self)
+            taggings.create!(:tag_id => tag.id, :context => context.to_s, :taggable => self, :score => tag.score)
           end
         end
 
