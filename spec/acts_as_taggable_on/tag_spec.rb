@@ -40,6 +40,32 @@ describe ActsAsTaggableOn::Tag do
         ActsAsTaggableOn::Tag.find_or_create_with_like_by_name("epic")
       }.should change(ActsAsTaggableOn::Tag, :count).by(1)
     end
+
+    context "with a scored tag" do
+      before(:each) do
+        @tag.score = 4
+      end
+      it "should find by name" do
+        t = ActsAsTaggableOn::Tag.find_or_create_with_like_by_name("awesome:4", true)
+        t.should == @tag
+        t.score.should == @tag.score
+      end
+
+      it "should find by name case insensitive" do
+        t = ActsAsTaggableOn::Tag.find_or_create_with_like_by_name("AWESOME:4", true)
+        t.should == @tag
+        t.score.should == @tag.score
+      end
+
+      it "should create by name" do
+        t1 = nil
+        lambda {
+          t1 = ActsAsTaggableOn::Tag.find_or_create_with_like_by_name("epic:5", true)
+        }.should change(ActsAsTaggableOn::Tag, :count).by(1)
+        t2 = ActsAsTaggableOn::Tag.find_or_create_with_like_by_name("epic:3", true)
+        t1.should == t2
+      end
+    end
   end
 
   unless ActsAsTaggableOn::Tag.using_sqlite?
@@ -66,27 +92,27 @@ describe ActsAsTaggableOn::Tag do
     end
 
     it "should find by name" do
-      ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name("awesome").should == [@tag]
+      ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name(false, "awesome").should == [@tag]
     end
 
     it "should find by name case insensitive" do
-      ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name("AWESOME").should == [@tag]
+      ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name(false, "AWESOME").should == [@tag]
     end
 
     it "should create by name" do
       lambda {
-        ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name("epic")
+        ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name(false, "epic")
       }.should change(ActsAsTaggableOn::Tag, :count).by(1)
     end
 
     it "should find or create by name" do
       lambda {
-        ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name("awesome", "epic").map(&:name).should == ["awesome", "epic"]
+        ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name(false, "awesome", "epic").map(&:name).should == ["awesome", "epic"]
       }.should change(ActsAsTaggableOn::Tag, :count).by(1)
     end
 
     it "should return an empty array if no tags are specified" do
-      ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name([]).should == []
+      ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name(false, []).should == []
     end
   end
 

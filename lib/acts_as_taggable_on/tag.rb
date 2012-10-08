@@ -43,18 +43,35 @@ module ActsAsTaggableOn
 
     ### CLASS METHODS:
 
-    def self.find_or_create_with_like_by_name(name)
+    def self.name_and_score(str)
+      str =~ /^(.+):(\d+)$/
+      [$1, $2.to_i]
+    end
+
+    def self.split_if_scored(str, scored)
+      scored ? name_and_score(str) : [str, nil]
+    end
+
+    def self.find_or_create_with_like_by_name(name, scored=false)
       if (ActsAsTaggableOn.strict_case_match)
-        self.find_or_create_all_with_like_by_name([name]).first
+        self.find_or_create_all_with_like_by_name(scored, name).first
       else
-        named_like(name).first || create(:name => name)
+        name, score = split_if_scored(name, scored)
+        ret = named_like(name).first || create(:name => name)
+        ret.score = score
+        ret
       end
     end
 
-    def self.find_or_create_all_with_like_by_name(*list)
+    def self.find_or_create_all_with_like_by_name(scored=false, *list)
       list = [list].flatten
 
       return [] if list.empty?
+
+      if scored
+        scores = Hash[list.map{|str| name_and_score(str)}]
+        list = scores.keys
+      end
 
       existing_tags = Tag.named_any(list).all
       new_tag_names = list.reject do |name|
@@ -63,7 +80,15 @@ module ActsAsTaggableOn
       end
       created_tags  = new_tag_names.map { |name| Tag.create(:name => name) }
 
-      existing_tags + created_tags
+      ret = existing_tags + created_tags
+
+      if scored
+        ret.each do |tag|
+          tag.score = scores[tag.name]
+        end
+      end
+
+      ret
     end
 
     ### INSTANCE METHODS:

@@ -79,7 +79,7 @@ module ActsAsTaggableOn::Taggable
           cached_owned_tag_list_on(context).each do |owner, tag_list|
             
             # Find existing tags or create non-existing tags:
-            tags = ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name(tag_list.uniq)            
+            tags = ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name(tags_have_scores[context], tag_list.uniq)            
 
             # Tag objects for owned tags
             owned_tags = owner_tags_on(owner, context)

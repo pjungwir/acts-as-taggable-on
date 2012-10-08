@@ -39,24 +39,15 @@ module ActsAsTaggableOn::Taggable
           if tags_have_scores[tags_type]
             class_eval %(
               def #{tag_type}_list
-                # scored_#{tag_type}_list.map{|k,v| k}
-                raise "TODO"
-              end
-
-              def scored_#{tag_type}_list
-                scored_tag_list_on('#{tags_type}')
+                tag_list_on('#{tags_type}')
               end
 
               def #{tag_type}_list=(new_tags)
                 set_scored_tag_list_on('#{tags_type}', new_tags)
               end
 
-              def all_#{tags_type}_list_by_score
-                raise "TODO"
-              end
-
-              def scored_#{tags_type}_list_by_score
-                raise "TODO"
+              def all_#{tags_type}_list
+                all_tags_list_on('#{tags_type}')
               end
 
               def score_for_#{tags_type}(tag)
@@ -251,24 +242,19 @@ module ActsAsTaggableOn::Taggable
         !instance_variable_get(variable_name).nil?
       end
 
+      # Returns an array of strings
       def tag_list_cache_on(context)
         variable_name = "@#{context.to_s.singularize}_list"
-        instance_variable_get(variable_name) || instance_variable_set(variable_name, ActsAsTaggableOn::TagList.new(tags_on(context).map(&:name)))
-      end
-
-      def scored_tag_list_cache_on(context)
-        variable_name = "@scored_#{context.to_s.singularize}_list"
-        instance_variable_get(variable_name) || instance_variable_set(variable_name, ActsAsTaggableOn::TagList.new(tags_on(context).map{|t| "#{t.name}:#{t.score}"}))
+        if tags_have_scores[context]
+          instance_variable_get(variable_name) || instance_variable_set(variable_name, ActsAsTaggableOn::TagList.new(tags_on(context).map{|t| "#{t.name}:#{t.score}"}))
+        else
+          instance_variable_get(variable_name) || instance_variable_set(variable_name, ActsAsTaggableOn::TagList.new(tags_on(context).map(&:name)))
+        end
       end
 
       def tag_list_on(context)
         add_custom_context(context)
         tag_list_cache_on(context)
-      end
-
-      def scored_tag_list_on(context)
-        add_custom_context(context)
-        scored_tag_list_cache_on(context)
       end
 
       def all_tags_list_on(context)
@@ -363,7 +349,7 @@ module ActsAsTaggableOn::Taggable
           tag_list = tag_list_cache_on(context).uniq
 
           # Find existing tags or create non-existing tags:
-          tags = ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name(tag_list)
+          tags = ActsAsTaggableOn::Tag.find_or_create_all_with_like_by_name(tags_have_scores[context], tag_list)
 
           # Tag objects for currently assigned tags
           current_tags = tags_on(context)
